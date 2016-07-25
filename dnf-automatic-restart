@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+# Automatically restart machine or updated services after dnf-automatic.
+#
+# The following is required:
+#   - DNF tracer plugin
+#     $ dnf install -y dnf-plugins-extras-tracer
+#     http://dnf-plugins-extras.readthedocs.io/en/latest/tracer.html
+#
+#   - DNF Automatic
+#     $ dnf install -y dnf-automatic && systemctl enable dnf-automatic.timer
+#     http://dnf.readthedocs.io/en/latest/automatic.html
+#
+#   - DNF Automatic drop-in to run this script after DNF Automatic ran
+#     $ systemctl edit dnf-automatic.service
+#     Enter the following contents:
+#
+#     [Service]
+#     # Path to this script.
+#     ExecStartPost=/usr/local/sbin/dnf-automatic-restart
+#
+# The activity of this script can be monitored using
+# $ journalctl --unit dnf-automatic
+
+set -e
+
+# Kernel-only updates are not detected by tracer.
+# https://github.com/FrostyX/tracer/issues/45
+running_kernel="$(uname -r)"
+installed_kernel="$(cat /boot/grub2/grubenv | grep Fedora | sed -e 's/.*Fedora\s(\(.*\))\s.*/\1/')"
+
+if [[ "$running_kernel" != "$installed_kernel" ]]; then
+  logger --stderr --tag "$0" "Triggering reboot because the kernel was updated from $running_kernel to $installed_kernel"
+  systemctl reboot
+  exit
+fi
+
+tracer_out="$(dnf tracer)"
+
+tracer_tmpfile="$(mktemp)" && {
+  echo dnf tracer output: > "$tracer_tmpfile"
+  echo -e "$tracer_out" >> "$tracer_tmpfile"
+
+  logger --stderr --tag "$0" --file "$tracer_tmpfile"
+
+  rm -f "$tracer_tmpfile"
+}
+
+if echo $tracer_out | grep --quiet systemd; then
+  logger --stderr --tag "$0" 'Triggering reboot because systemd needs restart'
+  systemctl reboot
+  exit
+fi
+
+dnf tracer --services-only | tail --lines=+3 | while read line; do
+  logger --stderr --tag "$0" "Restarting service using $line"
+  $line
+done
