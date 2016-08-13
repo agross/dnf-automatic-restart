@@ -47,8 +47,9 @@ tracer_tmpfile="$(mktemp)" && {
 }
 
 if echo $tracer_out | grep --quiet systemd; then
-  logger --stderr --tag "$0" 'Triggering systemctl daemon-reexec because systemd was updated'
-  systemctl daemon-reexec
+  logger --stderr --tag "$0" 'Triggering reboot because systemd was updated'
+  systemctl reboot
+  exit
 fi
 
 dnf tracer --services-only | tail --lines=+3 | while read line; do
