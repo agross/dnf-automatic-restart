@@ -7,7 +7,7 @@
 `dnf-automatic-restart` is a script to hook into the `dnf-automatic` update process. After `dnf-automatic` finishes `dnf-automatic-restart` is started and will:
 
 * Compare the currently running kernel to the latest installed kernel and reboot the machine if a newer installed kernel is found,
-* Check if [systemd](https://www.freedesktop.org/wiki/Software/systemd/) was updated and [reexec systemd](https://www.freedesktop.org/software/systemd/man/systemctl.html#daemon-reexec),
+* Check if [systemd](https://www.freedesktop.org/wiki/Software/systemd/) was updated and reboot system,
 * Use [DNF tracer](http://dnf-plugins-extras.readthedocs.io/en/latest/tracer.html) to inspect what services need to be restarted and restart them.
 
 ## Installation
