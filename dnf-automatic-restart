@@ -24,15 +24,104 @@
 
 set -e
 
+show_help() {
+cat << EOF
+Usage: ${0##*/} [-h] [-n HOURS] [-r HOUR]
+
+Automatically restart machine or updated services after dnf-automatic.
+
+    -h        display this help and exit
+    -n HOURS  no automatic reboot between hours (e.g. 8-22)
+    -r HOUR   schedule automatic reboot at hour (e.g. 0)
+EOF
+}
+
+error() {
+  logger --stderr --tag "$0" "Error: $1"
+  show_help >&2
+  exit 1
+}
+
+trigger_reboot() {
+  if [[ -n $no_reboot_from && -n $no_reboot_to ]]; then
+    hour=$(date +%k)
+
+    if (($hour >= $no_reboot_from && $hour <= $no_reboot_to)); then
+      logger --stderr --tag "$0" 'Rebooting the system is disallowed right now'
+
+      if [[ -z $reboot_at ]]; then
+        logger --stderr --tag "$0" 'Skip scheduling reboot because reboot time was not specified'
+        exit
+      fi
+
+      logger --stderr --tag "$0" "Scheduling reboot at $reboot_at:00"
+      at ${reboot_at}00 <<< 'systemctl reboot'
+      exit
+    fi
+  fi
+
+  if [[ -n $reboot_at && -z $no_reboot_from && -z $no_reboot_to ]]; then
+    logger --stderr --tag "$0" "Scheduling reboot at $reboot_at:00"
+    at ${reboot_at}00 <<< 'systemctl reboot'
+    exit
+  fi
+
+  logger --stderr --tag "$0" 'Rebooting system'
+  systemctl reboot
+  exit
+}
+
+OPTIND=1 # Reset is necessary if getopts was used previously in the script.
+numeric='^[0-9]+$'
+no_reboot_from=
+no_reboot_to=
+reboot_at=
+while getopts ":hn:r:" opt; do
+  case "$opt" in
+      h)
+        show_help
+        exit 0
+        ;;
+      n)
+        no_reboot_from=${OPTARG%%-*}
+        no_reboot_to=${OPTARG##*-}
+
+        if ! [[ $OPTARG =~ '-' ]]; then
+          error 'No automatic reboot between hours must be a range separated by minus (-)'
+        fi
+
+        if ! [[ $no_reboot_from =~ $numeric && $no_reboot_to =~ $numeric ]]; then
+          error 'No automatic reboot between hours must be numeric.'
+        fi
+
+        if (($no_reboot_to < $no_reboot_from)); then
+          error 'No automatic reboot between hours must be a valid "from-to" range.'
+        fi
+        ;;
+      r)
+        reboot_at=$(printf %02d $OPTARG)
+
+        if ! [[ $reboot_at =~ $numeric ]]; then
+          error 'Reboot at hour must be numeric.'
+        fi
+        ;;
+      :)
+        error "Option -$OPTARG requires an argument."
+        ;;
+      '?')
+        error "Invalid option: -$OPTARG"
+        ;;
+  esac
+done
+
 # Kernel-only updates are not detected by tracer.
 # https://github.com/FrostyX/tracer/issues/45
 running_kernel="$(uname -r)"
 installed_kernel="$(cat /boot/grub2/grubenv | grep Fedora | sed -e 's/.*Fedora\s(\(.*\))\s.*/\1/')"
 
 if [[ "$running_kernel" != "$installed_kernel" ]]; then
-  logger --stderr --tag "$0" "Triggering reboot because the kernel was updated from $running_kernel to $installed_kernel"
-  systemctl reboot
-  exit
+  logger --stderr --tag "$0" "The kernel was updated from $running_kernel to $installed_kernel"
+  trigger_reboot
 fi
 
 tracer_out="$(dnf tracer)"
@@ -47,9 +136,8 @@ tracer_tmpfile="$(mktemp)" && {
 }
 
 if echo $tracer_out | grep --quiet systemd; then
-  logger --stderr --tag "$0" 'Triggering reboot because systemd was updated'
-  systemctl reboot
-  exit
+  logger --stderr --tag "$0" 'systemd was updated'
+  trigger_reboot
 fi
 
 dnf tracer --services-only | tail --lines=+3 | while read line; do
