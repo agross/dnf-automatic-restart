@@ -140,7 +140,14 @@ if echo $tracer_out | grep --quiet systemd; then
   trigger_reboot
 fi
 
+daemon_reloaded=false
 dnf tracer --services-only | tail --lines=+3 | while read line; do
+  if [[ "$daemon_reloaded" == 'false' ]]; then
+    logger --stderr --tag "$0" "Reloading systemd daemon configuration"
+    systemctl daemon-reload
+    daemon_reloaded=true
+  fi
+
   logger --stderr --tag "$0" "Restarting service using $line"
   $line
 done
