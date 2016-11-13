@@ -150,4 +150,9 @@ dnf tracer --services-only | tail --lines=+3 | while read line; do
 
   logger --stderr --tag "$0" "Restarting service using $line"
   $line
+
+  if [[ "$line" == *firewalld* ]] && systemctl is-active --quiet docker; then
+    logger --stderr --tag "$0" "Restarting docker because firewalld was restarted"
+    systemctl restart docker
+  fi
 done
