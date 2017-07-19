@@ -3,16 +3,18 @@
 # Automatically restart machine or updated services after dnf-automatic.
 #
 # The following is required:
-#   - DNF tracer plugin
+#   - DNF tracer plugin and tracer
 #     $ dnf install -y dnf-plugins-extras-tracer
 #     http://dnf-plugins-extras.readthedocs.io/en/latest/tracer.html
+#     http://tracer-package.com/
 #
 #   - DNF Automatic
-#     $ dnf install -y dnf-automatic && systemctl enable dnf-automatic.timer
+#     $ dnf install -y dnf-automatic && systemctl enable dnf-automatic-install.timer
 #     http://dnf.readthedocs.io/en/latest/automatic.html
 #
 #   - DNF Automatic drop-in to run this script after DNF Automatic ran
-#     $ systemctl edit dnf-automatic.service
+#     $ systemctl edit dnf-automatic-install.service
+#
 #     Enter the following contents:
 #
 #     [Service]
@@ -25,7 +27,7 @@
 set -e
 
 show_help() {
-cat << EOF
+  cat << EOF
 Usage: ${0##*/} [-h] [-n HOURS] [-r HOUR]
 
 Automatically restart machine or updated services after dnf-automatic.
@@ -46,7 +48,7 @@ trigger_reboot() {
   if [[ -n $no_reboot_from && -n $no_reboot_to ]]; then
     hour=$(date +%k)
 
-    if (($hour >= $no_reboot_from && $hour <= $no_reboot_to)); then
+    if ((hour >= no_reboot_from && hour <= no_reboot_to)); then
       logger --stderr --tag "$0" 'Rebooting the system is disallowed right now'
 
       if [[ -z $reboot_at ]]; then
@@ -55,14 +57,14 @@ trigger_reboot() {
       fi
 
       logger --stderr --tag "$0" "Scheduling reboot at $reboot_at:00"
-      at ${reboot_at}00 <<< 'systemctl reboot'
+      at "${reboot_at}00" <<< 'systemctl reboot'
       exit
     fi
   fi
 
   if [[ -n $reboot_at && -z $no_reboot_from && -z $no_reboot_to ]]; then
     logger --stderr --tag "$0" "Scheduling reboot at $reboot_at:00"
-    at ${reboot_at}00 <<< 'systemctl reboot'
+    at "${reboot_at}00" <<< 'systemctl reboot'
     exit
   fi
 
@@ -94,12 +96,12 @@ while getopts ":hn:r:" opt; do
           error 'No automatic reboot between hours must be numeric.'
         fi
 
-        if (($no_reboot_to < $no_reboot_from)); then
+        if ((no_reboot_to < no_reboot_from)); then
           error 'No automatic reboot between hours must be a valid "from-to" range.'
         fi
         ;;
       r)
-        reboot_at=$(printf %02d $OPTARG)
+        reboot_at="$(printf %02d "$OPTARG")"
 
         if ! [[ $reboot_at =~ $numeric ]]; then
           error 'Reboot at hour must be numeric.'
@@ -117,7 +119,7 @@ done
 # Kernel-only updates are not detected by tracer.
 # https://github.com/FrostyX/tracer/issues/45
 running_kernel="$(uname -r)"
-installed_kernel="$(cat /boot/grub2/grubenv | grep Fedora | sed -e 's/.*Fedora\s(\(.*\))\s.*/\1/')"
+installed_kernel="$(grep Fedora /boot/grub2/grubenv | sed -e 's/.*Fedora\s(\(.*\))\s.*/\1/')"
 
 if [[ "$running_kernel" != "$installed_kernel" ]]; then
   logger --stderr --tag "$0" "The kernel was updated from $running_kernel to $installed_kernel"
@@ -135,7 +137,7 @@ tracer_tmpfile="$(mktemp)" && {
   rm -f "$tracer_tmpfile"
 }
 
-if echo $tracer_out | grep --quiet systemd; then
+if echo "$tracer_out" | grep --quiet systemd; then
   logger --stderr --tag "$0" 'systemd was updated'
   trigger_reboot
 fi
