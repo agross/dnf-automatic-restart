@@ -129,7 +129,7 @@ fi
 tracer_out="$(tracer)"
 
 tracer_tmpfile="$(mktemp)" && {
-  echo dnf tracer output: > "$tracer_tmpfile"
+  echo tracer output: > "$tracer_tmpfile"
   echo -e "$tracer_out" >> "$tracer_tmpfile"
 
   logger --stderr --tag "$0" --file "$tracer_tmpfile"
@@ -145,7 +145,7 @@ fi
 daemon_reloaded=false
 tracer --services-only | tail --lines=+3 | while read -r line; do
   if [[ "$daemon_reloaded" == 'false' ]]; then
-    logger --stderr --tag "$0" "Reloading systemd daemon configuration"
+    logger --stderr --tag "$0" 'Reloading systemd daemon configuration'
     systemctl daemon-reload
     daemon_reloaded=true
   fi
@@ -154,7 +154,7 @@ tracer --services-only | tail --lines=+3 | while read -r line; do
   $line
 
   if [[ "$line" == *firewalld* ]] && systemctl is-active --quiet docker; then
-    logger --stderr --tag "$0" "Restarting docker because firewalld was restarted"
+    logger --stderr --tag "$0" 'Restarting docker because firewalld was restarted'
     systemctl restart docker
   fi
 done
