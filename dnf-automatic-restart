@@ -126,7 +126,7 @@ if [[ "$running_kernel" != "$installed_kernel" ]]; then
   trigger_reboot
 fi
 
-tracer_out="$(tracer)"
+tracer_out="$(tracer || true)"
 
 tracer_tmpfile="$(mktemp)" && {
   echo tracer output: > "$tracer_tmpfile"
