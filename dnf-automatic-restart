@@ -39,7 +39,7 @@ EOF
 }
 
 error() {
-  logger --stderr --tag "$0" "Error: $1"
+  >&2 printf 'Error: %s\n' "$1"
   show_help >&2
   exit 1
 }
@@ -49,26 +49,26 @@ trigger_reboot() {
     hour=$(date +%k)
 
     if ((hour >= no_reboot_from && hour <= no_reboot_to)); then
-      logger --stderr --tag "$0" 'Rebooting the system is disallowed right now'
+      echo 'Rebooting the system is disallowed right now'
 
       if [[ -z $reboot_at ]]; then
-        logger --stderr --tag "$0" 'Skip scheduling reboot because reboot time was not specified'
-        exit
+        >&2 'Skipped scheduling reboot because reboot time was not specified'
+        exit 1
       fi
 
-      logger --stderr --tag "$0" "Scheduling reboot at $reboot_at:00"
+      echo "Scheduling reboot at $reboot_at:00"
       at "${reboot_at}00" <<< 'systemctl reboot'
       exit
     fi
   fi
 
   if [[ -n $reboot_at && -z $no_reboot_from && -z $no_reboot_to ]]; then
-    logger --stderr --tag "$0" "Scheduling reboot at $reboot_at:00"
+    printf 'Scheduling reboot at %s:00\n' "$reboot_at"
     at "${reboot_at}00" <<< 'systemctl reboot'
     exit
   fi
 
-  logger --stderr --tag "$0" 'Rebooting system'
+  echo 'Rebooting system'
   systemctl reboot
   exit
 }
@@ -122,39 +122,38 @@ running_kernel="$(uname -r)"
 installed_kernel="$(grep Fedora /boot/grub2/grubenv | sed -e 's/.*Fedora\s(\(.*\))\s.*/\1/')"
 
 if [[ "$running_kernel" != "$installed_kernel" ]]; then
-  logger --stderr --tag "$0" "The kernel was updated from $running_kernel to $installed_kernel"
+  printf 'The kernel was updated from %s to %s\n' "$running_kernel" "$installed_kernel"
   trigger_reboot
 fi
 
-tracer_out="$(tracer || true)"
+tracer_out="$(tracer || {
+  exit_code=$?
+  if [[ $exit_code > 0 && $exit_code < 100 ]]; then
+    >&2 printf 'Tracer failed with exit code %s\n' "$exit_code"
+    exit $exit_code
+  fi
+})"
 
-tracer_tmpfile="$(mktemp)" && {
-  echo tracer output: > "$tracer_tmpfile"
-  echo -e "$tracer_out" >> "$tracer_tmpfile"
+printf 'tracer output:\n%s\n' "$tracer_out"
 
-  logger --stderr --tag "$0" --file "$tracer_tmpfile"
-
-  rm -f "$tracer_tmpfile"
-}
-
-if echo "$tracer_out" | grep --quiet systemd; then
-  logger --stderr --tag "$0" 'systemd was updated'
+if [[ "$tracer_out" == *systemd* ]]; then
+  echo 'systemd was updated'
   trigger_reboot
 fi
 
 daemon_reloaded=false
 tracer --services-only | tail --lines=+3 | while read -r line; do
   if [[ "$daemon_reloaded" == 'false' ]]; then
-    logger --stderr --tag "$0" 'Reloading systemd daemon configuration'
+    echo 'Reloading systemd daemon configuration'
     systemctl daemon-reload
     daemon_reloaded=true
   fi
 
-  logger --stderr --tag "$0" "Restarting service using $line"
+  printf 'Restarting service using %s\n' "$line"
   $line
 
   if [[ "$line" == *firewalld* ]] && systemctl is-active --quiet docker; then
-    logger --stderr --tag "$0" 'Restarting docker because firewalld was restarted'
+    echo 'Restarting docker because firewalld was restarted'
     systemctl restart docker
   fi
 done
