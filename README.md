@@ -75,6 +75,7 @@ offline are small.
 `dnf-automatic-restart` supports the following options:
 
 ```text
+-d        disable reboot
 -h        display this help and exit
 -n HOURS  no automatic reboot between hours (e.g. 8-22)
 -r HOUR   schedule automatic reboot at hour (e.g. 0)
@@ -99,6 +100,12 @@ ExecStartPost=/usr/local/sbin/dnf-automatic-restart -n 8-22
 # No reboots between 08:00 and 22:00, schedule them for 00:00.
 # If dnf-automatic runs at night (22:00-08:00), reboot immediately.
 ExecStartPost=/usr/local/sbin/dnf-automatic-restart -n 8-22 -r 0
+```
+
+```ini
+[Service]
+# No automatic reboots, only services are restarted.
+ExecStartPost=/usr/local/sbin/dnf-automatic-restart -d
 ```
 
 ## Monitoring
