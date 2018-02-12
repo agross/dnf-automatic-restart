@@ -28,10 +28,11 @@ set -e
 
 show_help() {
   cat << EOF
-Usage: ${0##*/} [-h] [-n HOURS] [-r HOUR]
+Usage: ${0##*/} [-d] [-h] [-n HOURS] [-r HOUR]
 
 Automatically restart machine or updated services after dnf-automatic.
 
+    -d        disable reboot
     -h        display this help and exit
     -n HOURS  no automatic reboot between hours (e.g. 8-22)
     -r HOUR   schedule automatic reboot at hour (e.g. 0)
@@ -45,6 +46,10 @@ error() {
 }
 
 trigger_reboot() {
+  if [[ "$disable_reboot" = true ]]; then
+    echo 'Rebooting is disabled'
+    exit
+  fi
   if [[ -n $no_reboot_from && -n $no_reboot_to ]]; then
     hour=$(date +%k)
 
@@ -75,11 +80,15 @@ trigger_reboot() {
 
 OPTIND=1 # Reset is necessary if getopts was used previously in the script.
 numeric='^[0-9]+$'
+disable_reboot=false
 no_reboot_from=
 no_reboot_to=
 reboot_at=
-while getopts ":hn:r:" opt; do
+while getopts ":dhn:r:" opt; do
   case "$opt" in
+      d)
+        disable_reboot=true
+        ;;
       h)
         show_help
         exit 0
