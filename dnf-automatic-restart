@@ -24,7 +24,7 @@
 # The activity of this script can be monitored using
 # $ journalctl --unit dnf-automatic
 
-set -e
+set -euo pipefail
 
 show_help() {
   cat << EOF
