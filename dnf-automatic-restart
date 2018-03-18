@@ -22,7 +22,7 @@
 #     ExecStartPost=/usr/local/sbin/dnf-automatic-restart
 #
 # The activity of this script can be monitored using
-# $ journalctl --unit dnf-automatic
+# $ journalctl --unit dnf-automatic-install.service
 
 set -euo pipefail
 
