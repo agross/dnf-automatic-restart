@@ -155,7 +155,7 @@ tracer --services-only | tail --lines=+3 | sort | uniq | while read -r line; do
     echo 'Restarting docker because firewalld was restarted'
     systemctl restart docker
   fi
-done
+done || true
 
 # Kernel-only updates are not detected by tracer.
 # https://github.com/FrostyX/tracer/issues/45
