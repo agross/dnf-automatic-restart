@@ -136,7 +136,7 @@ tracer_out="$(tracer || {
 printf 'tracer output:\n%s\n' "$tracer_out"
 
 daemon_reloaded=false
-tracer --services-only | tail --lines=+3 | sort | uniq | while read -r line; do
+(tracer --services-only || true) | tail --lines=+3 | sort | uniq | while read -r line; do
   if [[ "$daemon_reloaded" == 'false' ]]; then
     echo 'Reloading systemd daemon configuration'
     systemctl daemon-reload
@@ -155,7 +155,7 @@ tracer --services-only | tail --lines=+3 | sort | uniq | while read -r line; do
     echo 'Restarting docker because firewalld was restarted'
     systemctl restart docker
   fi
-done || true
+done
 
 # Kernel-only updates are not detected by tracer.
 # https://github.com/FrostyX/tracer/issues/45
