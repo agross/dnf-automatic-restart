@@ -127,7 +127,7 @@ done
 
 tracer_out="$(tracer || {
   exit_code=$?
-  if ((exit_code > 0 && exit_code < 100)); then
+  if ((exit_code > 0 && (exit_code < 101 || exit_code > 104))); then
     error "Tracer failed with exit code $exit_code" "$exit_code"
   fi
 })"
