@@ -125,12 +125,11 @@ while getopts ":dhn:r:" opt; do
   esac
 done
 
-tracer_out="$(tracer || {
-  exit_code=$?
-  if ((exit_code > 0 && (exit_code < 101 || exit_code > 104))); then
-    error "Tracer failed with exit code $exit_code" "$exit_code"
-  fi
-})"
+tracer_status=0
+tracer_out="$(tracer)" || tracer_status=$?
+if ((tracer_status > 0 && (tracer_status < 101 || tracer_status > 104))); then
+  error "Tracer failed with exit code $tracer_status" "$tracer_status"
+fi
 
 printf 'tracer output:\n%s\n' "$tracer_out"
 
@@ -156,13 +155,8 @@ daemon_reloaded=false
   fi
 done
 
-# Kernel-only updates are not detected by tracer.
-# https://github.com/FrostyX/tracer/issues/45
-running_kernel="$(uname -r)"
-installed_kernel="$(grep Fedora /boot/grub2/grubenv | sed -e 's/.*Fedora\s(\(.*\))\s.*/\1/')"
-
-if [[ "$running_kernel" != "$installed_kernel" ]]; then
-  printf 'The kernel was updated from %s to %s\n' "$running_kernel" "$installed_kernel"
+if ((tracer_status == 104)); then
+  printf 'The kernel was updated\n'
   trigger_reboot
 fi
 
