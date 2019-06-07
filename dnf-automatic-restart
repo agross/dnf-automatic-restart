@@ -42,7 +42,7 @@ EOF
 error() {
   >&2 printf 'Error: %s\n' "$1"
   show_help >&2
-  exit 1
+  exit "${2:-1}"
 }
 
 trigger_reboot() {
@@ -128,8 +128,7 @@ done
 tracer_out="$(tracer || {
   exit_code=$?
   if ((exit_code > 0 && exit_code < 100)); then
-    >&2 printf 'Tracer failed with exit code %s\n' "$exit_code"
-    exit $exit_code
+    error "Tracer failed with exit code $exit_code" "$exit_code"
   fi
 })"
 
