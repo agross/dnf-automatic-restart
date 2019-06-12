@@ -42,7 +42,7 @@ EOF
 error() {
   >&2 printf 'Error: %s\n' "$1"
   show_help >&2
-  exit 1
+  exit "${2:-1}"
 }
 
 trigger_reboot() {
@@ -125,13 +125,11 @@ while getopts ":dhn:r:" opt; do
   esac
 done
 
-tracer_out="$(tracer || {
-  exit_code=$?
-  if [[ $exit_code > 0 && $exit_code < 100 ]]; then
-    >&2 printf 'Tracer failed with exit code %s\n' "$exit_code"
-    exit $exit_code
-  fi
-})"
+tracer_status=0
+tracer_out="$(tracer)" || tracer_status=$?
+if ((tracer_status > 0 && (tracer_status < 101 || tracer_status > 104))); then
+  error "Tracer failed with exit code $tracer_status" "$tracer_status"
+fi
 
 printf 'tracer output:\n%s\n' "$tracer_out"
 
@@ -145,9 +143,9 @@ daemon_reloaded=false
 
   printf 'Restarting service using %s\n' "$line"
   $line || {
-    exit_code=$?
-    if [[ $exit_code > 0 ]]; then
-      >&2 printf '%s failed with exit code %s\n' "$line" "$exit_code"
+    status=$?
+    if ((status > 0)); then
+      >&2 printf '%s failed with exit code %s\n' "$line" "$status"
     fi
   }
 
@@ -157,13 +155,8 @@ daemon_reloaded=false
   fi
 done
 
-# Kernel-only updates are not detected by tracer.
-# https://github.com/FrostyX/tracer/issues/45
-running_kernel="$(uname -r)"
-installed_kernel="$(grep Fedora /boot/grub2/grubenv | sed -e 's/.*Fedora\s(\(.*\))\s.*/\1/')"
-
-if [[ "$running_kernel" != "$installed_kernel" ]]; then
-  printf 'The kernel was updated from %s to %s\n' "$running_kernel" "$installed_kernel"
+if ((tracer_status == 104)); then
+  printf 'The kernel was updated\n'
   trigger_reboot
 fi
 
