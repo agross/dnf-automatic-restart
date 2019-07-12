@@ -57,24 +57,29 @@ trigger_reboot() {
       echo 'Rebooting the system is disallowed right now'
 
       if [[ -z $reboot_at ]]; then
-        >&2 'Skipped scheduling reboot because reboot time was not specified'
+        echo >&2 'Skipped scheduling reboot because reboot time was not specified'
         exit 1
       fi
 
       echo "Scheduling reboot at $reboot_at:00"
-      at "${reboot_at}00" <<< 'systemctl reboot'
-      exit
+      reboot_at="${reboot_at}:00"
+    else
+      echo 'Rebooting system'
+      reboot_at=now
     fi
+  elif [[ -n $reboot_at ]]; then
+    echo "Scheduling reboot at $reboot_at:00"
+    reboot_at="${reboot_at}:00"
+  else
+    echo 'Rebooting system'
+    reboot_at=now
   fi
 
-  if [[ -n $reboot_at && -z $no_reboot_from && -z $no_reboot_to ]]; then
-    printf 'Scheduling reboot at %s:00\n' "$reboot_at"
-    at "${reboot_at}00" <<< 'systemctl reboot'
-    exit
+  if [[ $reboot_at == now ]]; then
+    reboot_at=+5
   fi
 
-  echo 'Rebooting system'
-  systemctl reboot
+  /sbin/shutdown --reboot "${reboot_at}" "Rebooting after dnf-automatic updates"
   exit
 }
 
