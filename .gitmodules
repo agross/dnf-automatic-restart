@@ -1,0 +1,9 @@
+[submodule "test/helpers/mocks"]
+	path = test/helpers/mocks
+	url = https://github.com/jasonkarns/bats-mock
+[submodule "test/helpers/assert"]
+	path = test/helpers/assert
+	url = https://github.com/jasonkarns/bats-assert-1
+[submodule "test/helpers/support"]
+	path = test/helpers/support
+	url = https://github.com/ztombol/bats-support

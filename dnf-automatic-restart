@@ -48,7 +48,7 @@ error() {
 trigger_reboot() {
   if [[ "$disable_reboot" = true ]]; then
     >&2 printf 'Rebooting is disabled\n'
-    return 1
+    return
   fi
 
   if [[ -n "$no_reboot_from" && -n "$no_reboot_to" ]]; then
@@ -59,7 +59,7 @@ trigger_reboot() {
 
       if [[ -z "$reboot_at" ]]; then
         >&2 printf 'Skipped scheduling reboot because reboot time was not specified\n'
-        return 2
+        return
       fi
 
       printf 'Scheduling reboot at %s:00\n' "$reboot_at"
@@ -82,6 +82,33 @@ trigger_reboot() {
 
   /sbin/shutdown --reboot "$reboot_at" 'Rebooting after dnf-automatic updates'
   exit
+}
+
+restart() {
+  local command="$1"
+  local reason="$2"
+  declare -g daemon_reloaded
+  declare -gA restarts
+
+  if [[ -n "${restarts["$command"]-}" ]]; then
+    printf '%s: %s has been executed before\n' "$reason" "$command"
+    return
+  fi
+
+  if [[ -z "${daemon_reloaded-}" ]]; then
+    printf 'Reloading systemd daemon configuration\n'
+    systemctl daemon-reload
+    daemon_reloaded=true
+  fi
+
+  printf '%s: Restarting service using %s\n' "$reason" "$command"
+  local status
+  $command && status=$? || status=$?
+  restarts["$command"]="$status"
+
+  if ((status > 0)); then
+    >&2 printf '%s failed with exit code %s\n' "$command" "$status"
+  fi
 }
 
 OPTIND=1 # Reset is necessary if getopts was used previously in the script.
@@ -151,24 +178,17 @@ for unit in systemd auditd; do
   fi
 done
 
-daemon_reloaded=false
-(tracer --services-only || true) | tail --lines=+3 | sort | uniq | while read -r line; do
-  if [[ "$daemon_reloaded" == 'false' ]]; then
-    echo 'Reloading systemd daemon configuration'
-    systemctl daemon-reload
-    daemon_reloaded=true
-  fi
+(tracer --services-only || true) |
+  tail --lines=+3 |
+  sort |
+  uniq |
+  while read -r command; do
 
-  printf 'Restarting service using %s\n' "$line"
-  $line || {
-    status=$?
-    if ((status > 0)); then
-      >&2 printf '%s failed with exit code %s\n' "$line" "$status"
-    fi
-  }
+  restart "$command" 'Tracer'
 
-  if [[ "$line" == *firewalld* ]] && systemctl is-active --quiet docker; then
-    echo 'Restarting docker because firewalld was restarted'
-    systemctl restart docker
+  if [[ "$command" == *firewalld* ]] &&
+     systemctl is-active --quiet docker; then
+    restart 'systemctl restart docker' \
+            'Because firewalld was restarted'
   fi
 done
