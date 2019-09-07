@@ -47,39 +47,40 @@ error() {
 
 trigger_reboot() {
   if [[ "$disable_reboot" = true ]]; then
-    echo 'Rebooting is disabled'
-    exit
+    >&2 printf 'Rebooting is disabled\n'
+    return 1
   fi
-  if [[ -n $no_reboot_from && -n $no_reboot_to ]]; then
-    hour=$(date +%k)
+
+  if [[ -n "$no_reboot_from" && -n "$no_reboot_to" ]]; then
+    hour="$(date +%k)"
 
     if ((hour >= no_reboot_from && hour <= no_reboot_to)); then
-      echo 'Rebooting the system is disallowed right now'
+      printf 'Rebooting the system is disallowed right now\n'
 
-      if [[ -z $reboot_at ]]; then
-        echo >&2 'Skipped scheduling reboot because reboot time was not specified'
-        exit 1
+      if [[ -z "$reboot_at" ]]; then
+        >&2 printf 'Skipped scheduling reboot because reboot time was not specified\n'
+        return 2
       fi
 
-      echo "Scheduling reboot at $reboot_at:00"
+      printf 'Scheduling reboot at %s:00\n' "$reboot_at"
       reboot_at="${reboot_at}:00"
     else
-      echo 'Rebooting system'
+      printf 'Rebooting system\n'
       reboot_at=now
     fi
-  elif [[ -n $reboot_at ]]; then
-    echo "Scheduling reboot at $reboot_at:00"
+  elif [[ -n "$reboot_at" ]]; then
+    printf 'Scheduling reboot at %s:00\n' "$reboot_at"
     reboot_at="${reboot_at}:00"
   else
-    echo 'Rebooting system'
+    printf 'Rebooting system\n'
     reboot_at=now
   fi
 
-  if [[ $reboot_at == now ]]; then
+  if [[ "$reboot_at" == now ]]; then
     reboot_at=+5
   fi
 
-  /sbin/shutdown --reboot "${reboot_at}" "Rebooting after dnf-automatic updates"
+  /sbin/shutdown --reboot "$reboot_at" 'Rebooting after dnf-automatic updates'
   exit
 }
 
@@ -89,7 +90,7 @@ disable_reboot=false
 no_reboot_from=
 no_reboot_to=
 reboot_at=
-while getopts ":dhn:r:" opt; do
+while getopts ':dhn:r:' opt; do
   case "$opt" in
       d)
         disable_reboot=true
@@ -138,6 +139,18 @@ fi
 
 printf 'tracer output:\n%s\n' "$tracer_out"
 
+if ((tracer_status == 104)); then
+  printf 'The kernel was updated\n'
+  trigger_reboot
+fi
+
+for unit in systemd auditd; do
+  if [[ "$tracer_out" == *$unit* ]]; then
+    printf '%s was updated\n' "$unit"
+    trigger_reboot
+  fi
+done
+
 daemon_reloaded=false
 (tracer --services-only || true) | tail --lines=+3 | sort | uniq | while read -r line; do
   if [[ "$daemon_reloaded" == 'false' ]]; then
@@ -157,17 +170,5 @@ daemon_reloaded=false
   if [[ "$line" == *firewalld* ]] && systemctl is-active --quiet docker; then
     echo 'Restarting docker because firewalld was restarted'
     systemctl restart docker
-  fi
-done
-
-if ((tracer_status == 104)); then
-  printf 'The kernel was updated\n'
-  trigger_reboot
-fi
-
-for unit in systemd auditd; do
-  if [[ "$tracer_out" == *$unit* ]]; then
-    printf '%s was updated\n' "$unit"
-    trigger_reboot
   fi
 done
