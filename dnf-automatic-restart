@@ -84,31 +84,60 @@ trigger_reboot() {
   exit
 }
 
-restart() {
-  local command="$1"
-  local reason="$2"
-  declare -g daemon_reloaded
-  declare -gA restarts
+restart-docker-after-firewalld() {
+  # We need to take action if docker is active and firewalld is restarted.
+  # Docker needs to restart after firewalld.
+  # Assumes arguments are sorted.
 
-  if [[ -n "${restarts["$command"]-}" ]]; then
-    printf '%s: %s has been executed before\n' "$reason" "$command"
+  if systemctl is-active --quiet docker; then
+    declare -A indexed_commands
+    for ((i = 1; i <= $#; i++)); do
+      indexed_commands["${!i}"]="$i"
+    done
+
+    local firewalld='systemctl restart firewalld'
+    local firewalld_index="${indexed_commands[$firewalld]:-}"
+
+    if [[ -n "$firewalld_index" ]]; then
+      local docker='systemctl restart docker'
+      local docker_index="${indexed_commands[$docker]:-$((firewalld_index + 1))}"
+
+      set -- \
+          "${@:1:$((docker_index - 1))}" \
+          "${@:$((docker_index + 1)):$((firewalld_index - docker_index))}" \
+          "$docker" \
+          "${@:$((firewalld_index + 1))}"
+    fi
+  fi
+
+  local command
+  for command in "$@"; do
+    printf '%s\n' "$command"
+  done
+}
+
+restart-services() {
+  if (($# == 0)); then
     return
   fi
 
-  if [[ -z "${daemon_reloaded-}" ]]; then
-    printf 'Reloading systemd daemon configuration\n'
-    systemctl daemon-reload
-    daemon_reloaded=true
-  fi
+  printf 'Reloading systemd daemon configuration\n'
+  systemctl daemon-reload
 
-  printf '%s: Restarting service using %s\n' "$reason" "$command"
-  local status
-  $command && status=$? || status=$?
-  restarts["$command"]="$status"
+  while (($#)); do
+    local command="$1"
 
-  if ((status > 0)); then
-    >&2 printf '%s failed with exit code %s\n' "$command" "$status"
-  fi
+    printf 'Restarting service using %s\n' "$command"
+    $command || {
+      status=$?
+
+      if ((status > 0)); then
+        >&2 printf '%s failed with exit code %s\n' "$command" "$status"
+      fi
+    }
+
+    shift
+  done
 }
 
 OPTIND=1 # Reset is necessary if getopts was used previously in the script.
@@ -178,17 +207,10 @@ for unit in systemd auditd; do
   fi
 done
 
-(tracer --services-only || true) |
-  tail --lines=+3 |
-  sort |
-  uniq |
-  while read -r command; do
-
-  restart "$command" 'Tracer'
-
-  if [[ "$command" == *firewalld* ]] &&
-     systemctl is-active --quiet docker; then
-    restart 'systemctl restart docker' \
-            'Because firewalld was restarted'
-  fi
-done
+# tracer --quiet?
+mapfile -t pending < <((tracer --services-only || true) |
+                       tail --lines=+3 |
+                       sort |
+                       uniq)
+mapfile -t pending < <(restart-docker-after-firewalld "${pending[@]}")
+restart-services "${pending[@]}"

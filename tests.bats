@@ -6,13 +6,15 @@ load 'test/helpers/mocks/stub'
 
 setup() {
   # There might be leftovers from previous runs.
-  unstub tracer || true
-  unstub systemctl || true
+  for stub in tracer systemctl; do
+    unstub "$stub"  2> /dev/null || true
+  done
 }
 
 teardown() {
-  unstub tracer || true
-  unstub systemctl || true
+  for stub in tracer systemctl; do
+    unstub "$stub" || true
+  done
 }
 
 @test 'help requested' {
@@ -88,9 +90,9 @@ teardown() {
   assert grep --quiet true "$services_are_restarted"
 }
 
-@test 'reboot requested outside of allowed hours'{
+# @test 'reboot requested outside of allowed hours'{
 
-}
+# }
 
 @test 'no services were updated' {
   tracer_services="ignored line\nignored line"
@@ -117,8 +119,8 @@ teardown() {
 
   assert_success
   assert_line 'Reloading systemd daemon configuration'
-  assert_line 'Tracer: Restarting service using systemctl restart a-ordered-first'
-  assert_line 'Tracer: Restarting service using systemctl restart z-ordered-last'
+  assert_line 'Restarting service using systemctl restart a-ordered-first'
+  assert_line 'Restarting service using systemctl restart z-ordered-last'
 
   # systemd daemon configuration should only be reloaded once.
   assert_line 'Reloading systemd daemon configuration'
@@ -136,6 +138,7 @@ teardown() {
          "--services-only : printf '$tracer_services'"
 
   stub systemctl \
+         'is-active --quiet docker : exit 0' \
          'daemon-reload : exit 0' \
          'restart failure : exit 42' \
          'restart success : exit 0'
@@ -146,7 +149,7 @@ teardown() {
   assert_line 'systemctl restart failure failed with exit code 42'
 }
 
-@test 'firewalld was restarted but docker is not active' {
+@test 'firewalld was updated but docker is not active' {
   tracer_services="ignored line\nignored line\nsystemctl restart firewalld"
 
   stub tracer \
@@ -155,9 +158,9 @@ teardown() {
 
   docker_restarted="$(mktemp)"
   stub systemctl \
+         'is-active --quiet docker : exit 1' \
          'daemon-reload : exit 0' \
          'restart firewalld : exit 0' \
-         'is-active --quiet docker : exit 1' \
          "restart docker : echo true > '$docker_restarted'"
 
   run ./dnf-automatic-restart
@@ -167,7 +170,7 @@ teardown() {
   refute grep --quiet true "$docker_restarted"
 }
 
-@test 'firewalld was restarted and docker is active' {
+@test 'firewalld was updated and docker is active' {
   tracer_services="ignored line\nignored line\nsystemctl restart firewalld"
 
   stub tracer \
@@ -176,15 +179,18 @@ teardown() {
 
   docker_restarted="$(mktemp)"
   stub systemctl \
+         'is-active --quiet docker : exit 0' \
          'daemon-reload : exit 0' \
          'restart firewalld : exit 0' \
-         'is-active --quiet docker : exit 0' \
          "restart docker : echo true > '$docker_restarted'"
 
   run ./dnf-automatic-restart
 
   assert_success
   assert grep --quiet true "$docker_restarted"
+
+  # Restart docker after firewalld.
+  assert_output --regexp 'firewalld.*docker'
 }
 
 @test 'firewalld and docker were updated and docker is active' {
@@ -196,15 +202,17 @@ teardown() {
 
   docker_restarted="$(mktemp)"
   stub systemctl \
-         'daemon-reload : exit 0' \
-         "restart docker : echo once > '$docker_restarted'" \
-         "restart firewalld : exit 0" \
          'is-active --quiet docker : exit 0' \
+         'daemon-reload : exit 0' \
+         "restart firewalld : exit 0" \
+         "restart docker : echo once > '$docker_restarted'" \
          "restart docker : echo twice > '$docker_restarted'"
 
   run ./dnf-automatic-restart
 
   assert_success
-  assert_line --partial 'Because firewalld was restarted: systemctl restart docker'
   assert grep --quiet once "$docker_restarted"
+
+  # Restart docker after firewalld.
+  assert_output --regexp 'firewalld.*docker'
 }
