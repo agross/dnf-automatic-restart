@@ -13,12 +13,15 @@ updated) to actually run updated components.
 process. After `dnf-automatic-install.service` finishes `dnf-automatic-restart`
 is started and will:
 
-* Compare the currently running kernel to the latest installed kernel and reboot
-  the machine if a newer installed kernel is found,
-* Check if [systemd](https://www.freedesktop.org/wiki/Software/systemd/) was
-  updated and reboot system,
-* Use [tracer](http://tracer-package.com/) to inspect what services need to be
+* Check if [tracer](http://tracer-package.com/) detected a kernel update and
+  reboot the machine if a newer installed kernel is found,
+* Check if [systemd](https://www.freedesktop.org/wiki/Software/systemd/) or
+  [auditd](https://linux.die.net/man/8/auditd) was updated and reboot the system,
+* Use [tracer](http://tracer-package.com/) to inspect which services need to be
   restarted and restart them.
+
+Automatic reboots may be prevented or scheduled by specifying
+[options](#options).
 
 ## Installation
 
@@ -36,13 +39,13 @@ is started and will:
    which also installs [tracer](http://tracer-package.com/).
 
    ```sh
-   dnf install -y dnf-plugins-extras-tracer
+   dnf install --yes dnf-plugins-extras-tracer
    ```
 
 1. Install `dnf-automatic` and enable it.
 
    ```sh
-   dnf install -y dnf-automatic
+   dnf install --yes dnf-automatic
    # Edit /etc/dnf/automatic.conf.
    systemctl enable dnf-automatic-install.timer
    ```
