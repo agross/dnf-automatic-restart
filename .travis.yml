@@ -1,0 +1,24 @@
+language: minimal
+
+services:
+  - docker
+
+script: >-
+  docker run \
+         --rm \
+         --volume "$PWD:/code:ro" \
+         bash:$_BASH_VERSION \
+         sh -c 'apk add bats grep coreutils &&
+                bash --version &&
+                cd /code &&
+                ./tests.bats'
+
+env:
+  - _BASH_VERSION=4.3
+  - _BASH_VERSION=4.4
+  - _BASH_VERSION=5
+
+matrix:
+  allow_failures:
+    # Bash 4.3's mapfile implementation does not bind the variable.
+    - env: _BASH_VERSION=4.3

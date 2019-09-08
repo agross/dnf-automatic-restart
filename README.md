@@ -1,5 +1,7 @@
 # dnf-automatic-restart
 
+[![Build Status](https://travis-ci.org/agross/dnf-automatic-restart.svg?branch=master)](https://travis-ci.org/agross/dnf-automatic-restart)
+
 [`dnf-automatic`](http://dnf.readthedocs.io/en/latest/automatic.html) provides
 automatic updates for your Linux server. However, once updates are applied, you
 may need to restart services or even the machine (if the Linux kernel was
