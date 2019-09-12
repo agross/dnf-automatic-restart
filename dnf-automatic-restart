@@ -207,7 +207,6 @@ for unit in systemd auditd; do
   fi
 done
 
-# tracer --quiet?
 mapfile -t pending < <((tracer --services-only || true) |
                        tail --lines=+3 |
                        sort |
