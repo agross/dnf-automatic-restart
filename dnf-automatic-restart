@@ -84,6 +84,19 @@ trigger_reboot() {
   exit
 }
 
+trim() {
+  while (($#)); do
+    local string="$1"
+
+    # https://web.archive.org/web/20121022051228/http://codesnippets.joyent.com/posts/show/1816
+    string="${string#"${string%%[![:space:]]*}"}"
+    string="${string%"${string##*[![:space:]]}"}"
+
+    printf '%s\n' "$string"
+    shift
+  done
+}
+
 restart-docker-after-firewalld() {
   # We need to take action if docker is active and firewalld is restarted.
   # Docker needs to restart after firewalld.
@@ -211,5 +224,6 @@ mapfile -t pending < <((tracer --services-only || true) |
                        tail --lines=+3 |
                        sort |
                        uniq)
+mapfile -t pending < <(trim "${pending[@]}")
 mapfile -t pending < <(restart-docker-after-firewalld "${pending[@]}")
 restart-services "${pending[@]}"

@@ -130,6 +130,22 @@ teardown() {
   assert_output --regexp 'a-ordered-first.*z-ordered-last'
 }
 
+@test 'services restarts are surrounded by whitespace' {
+  tracer_services="ignored line\nignored line\n   systemctl restart foo   "
+
+  stub tracer \
+         ': exit 0' \
+         "--services-only : printf '$tracer_services'"
+
+  stub systemctl
+
+  run ./dnf-automatic-restart
+
+  assert_success
+  assert_line 'Reloading systemd daemon configuration'
+  assert_line 'Restarting service using systemctl restart foo'
+}
+
 @test 'services require restart that but fail partially' {
   tracer_services="ignored line\nignored line\nsystemctl restart success\nsystemctl restart failure"
 
