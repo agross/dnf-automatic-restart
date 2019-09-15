@@ -166,7 +166,7 @@ teardown() {
 }
 
 @test 'firewalld was updated but docker is not active' {
-  tracer_services="ignored line\nignored line\nsystemctl restart firewalld"
+  tracer_services="ignored line\nignored line\n   systemctl restart firewalld"
 
   stub tracer \
          ': exit 0' \
@@ -187,7 +187,7 @@ teardown() {
 }
 
 @test 'firewalld was updated and docker is active' {
-  tracer_services="ignored line\nignored line\nsystemctl restart firewalld"
+  tracer_services="ignored line\nignored line\n   systemctl restart firewalld"
 
   stub tracer \
          ': exit 0' \
@@ -210,7 +210,7 @@ teardown() {
 }
 
 @test 'firewalld and docker were updated and docker is active' {
-  tracer_services="ignored line\nignored line\nsystemctl restart firewalld\nsystemctl restart docker"
+  tracer_services="ignored line\nignored line\n   systemctl restart firewalld\n   systemctl restart docker"
 
   stub tracer \
          ': exit 0' \

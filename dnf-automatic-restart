@@ -105,7 +105,8 @@ restart-docker-after-firewalld() {
   if systemctl is-active --quiet docker; then
     declare -A indexed_commands
     for ((i = 1; i <= $#; i++)); do
-      indexed_commands["${!i}"]="$i"
+      command="${!i}"
+      indexed_commands["$command"]="$i"
     done
 
     local firewalld='systemctl restart firewalld'
