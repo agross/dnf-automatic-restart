@@ -85,15 +85,14 @@ trigger_reboot() {
 }
 
 trim() {
-  while (($#)); do
-    local string="$1"
+  local string
 
+  while IFS=$'\n' read -r string; do
     # https://web.archive.org/web/20121022051228/http://codesnippets.joyent.com/posts/show/1816
     string="${string#"${string%%[![:space:]]*}"}"
     string="${string%"${string##*[![:space:]]}"}"
 
     printf '%s\n' "$string"
-    shift
   done
 }
 
@@ -224,7 +223,7 @@ done
 mapfile -t pending < <((tracer --services-only || true) |
                        tail --lines=+3 |
                        sort |
-                       uniq)
-mapfile -t pending < <(trim "${pending[@]}")
+                       uniq |
+                       trim)
 mapfile -t pending < <(restart-docker-after-firewalld "${pending[@]}")
 restart-services "${pending[@]}"
