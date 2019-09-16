@@ -97,6 +97,16 @@ trim() {
 }
 
 restart-docker-after-firewalld() {
+  local string
+  local command
+  local commands=()
+
+  while IFS=$'\n' read -r string; do
+    commands+=("$string")
+  done
+
+  set -- "${commands[@]}"
+
   # We need to take action if docker is active and firewalld is restarted.
   # Docker needs to restart after firewalld.
   # Assumes arguments are sorted.
@@ -123,7 +133,6 @@ restart-docker-after-firewalld() {
     fi
   fi
 
-  local command
   for command in "$@"; do
     printf '%s\n' "$command"
   done
@@ -224,6 +233,6 @@ mapfile -t pending < <((tracer --services-only || true) |
                        tail --lines=+3 |
                        sort |
                        uniq |
-                       trim)
-mapfile -t pending < <(restart-docker-after-firewalld "${pending[@]}")
+                       trim |
+                       restart-docker-after-firewalld)
 restart-services "${pending[@]}"
