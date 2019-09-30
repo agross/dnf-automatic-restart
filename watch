@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+files=(tests.bats dnf-automatic-restart)
+
+project="$(readlink --canonicalize-existing "$0")"
+project="${project%/*}"
+project="${project##*/}"
+
+notify() {
+  message="${1?Need message}"
+  notifier=(terminal-notifier -title "$project" -message)
+
+  "${notifier[@]}" "$message" 2> /dev/null
+}
+
+printf 'Watching %s\n' "${files[*]}"
+fswatch "${files[@]}" |
+  while read -r file; do
+    notify "$(printf '%s changed\n' "${file##*/}")"
+    printf '%b%s%b changed\n' '\e[34;1m' "$file" '\e[0m'
+
+    if ./tests.bats; then
+      notify Success
+      printf '%bSuccess%b\n' '\e[32;1m' '\e[0m'
+    else
+      notify Error
+      printf '%bError%b\n' '\e[31;1m' '\e[0m'
+    fi
+  done
