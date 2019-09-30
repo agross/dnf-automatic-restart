@@ -45,7 +45,7 @@ error() {
   exit "${2:-1}"
 }
 
-trigger_reboot() {
+schedule-reboot() {
   if [[ "$disable_reboot" = true ]]; then
     >&2 printf 'Rebooting is disabled\n'
     return
@@ -62,15 +62,15 @@ trigger_reboot() {
         return
       fi
 
-      printf 'Scheduling reboot at %s:00\n' "$reboot_at"
       reboot_at="${reboot_at}:00"
+      printf 'Scheduling reboot at %s\n' "$reboot_at"
     else
       printf 'Rebooting system\n'
       reboot_at=now
     fi
   elif [[ -n "$reboot_at" ]]; then
-    printf 'Scheduling reboot at %s:00\n' "$reboot_at"
     reboot_at="${reboot_at}:00"
+    printf 'Scheduling reboot at %s\n' "$reboot_at"
   else
     printf 'Rebooting system\n'
     reboot_at=now
@@ -80,7 +80,7 @@ trigger_reboot() {
     reboot_at=+5
   fi
 
-  /sbin/shutdown --reboot "$reboot_at" 'Rebooting after dnf-automatic updates'
+  shutdown --reboot "$reboot_at" 'Rebooting after dnf-automatic updates'
   exit
 }
 
@@ -217,13 +217,13 @@ printf 'tracer output:\n%s\n' "$tracer_out"
 
 if ((tracer_status == 104)); then
   printf 'The kernel was updated\n'
-  trigger_reboot
+  schedule-reboot
 fi
 
 for unit in systemd auditd; do
   if [[ "$tracer_out" == *$unit* ]]; then
     printf '%s was updated\n' "$unit"
-    trigger_reboot
+    schedule-reboot
   fi
 done
 

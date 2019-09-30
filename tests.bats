@@ -4,15 +4,17 @@ load 'test/helpers/assert/load'
 load 'test/helpers/support/load'
 load 'test/helpers/mocks/stub'
 
+stubs=(tracer systemctl shutdown date)
+
 setup() {
   # There might be leftovers from previous runs.
-  for stub in tracer systemctl; do
+  for stub in "${stubs[@]}"; do
     unstub "$stub"  2> /dev/null || true
   done
 }
 
 teardown() {
-  for stub in tracer systemctl; do
+  for stub in "${stubs[@]}"; do
     unstub "$stub" || true
   done
 }
@@ -90,9 +92,110 @@ teardown() {
   assert grep --quiet true "$services_are_restarted"
 }
 
-# @test 'reboot requested outside of allowed hours'{
+@test 'reboot required, no disallowed hours, no reboot time specified -> reboots now + 5min' {
+  stub tracer ': exit 104'
+  stub shutdown "--reboot +5 : echo Scheduling shutdown"
 
-# }
+  run ./dnf-automatic-restart
+
+  assert_success
+  assert_line 'Rebooting system'
+  assert_line 'Scheduling shutdown'
+}
+
+@test 'reboot required, no disallowed hours, reboot time 04:00 -> schedules reboot for 04:00' {
+  stub tracer ': exit 104'
+  stub shutdown "--reboot 04:00 : echo Scheduling shutdown"
+
+  run ./dnf-automatic-restart -r 4
+
+  assert_success
+  assert_line 'Scheduling reboot at 04:00'
+  assert_line 'Scheduling shutdown'
+}
+
+@test 'reboot required, disallowed hours 00:00-23:59, no reboot time specified -> skips scheduling reboot' {
+  stub tracer ': exit 104'
+  stub date '+%k : echo 0'
+
+  run ./dnf-automatic-restart -n 0-23
+
+  assert_success
+  assert_line 'Rebooting the system is disallowed right now'
+  assert_line 'Skipped scheduling reboot because reboot time was not specified'
+}
+
+@test 'reboot required, disallowed hours 00:00-23:59, reboot time 04:00 -> schedules reboot for 04:00' {
+  stub tracer ': exit 104'
+  stub date '+%k : echo 0'
+  stub shutdown "--reboot 04:00 : echo Scheduling shutdown"
+
+  run ./dnf-automatic-restart -n 0-23 -r 4
+
+  assert_success
+  assert_line 'Rebooting the system is disallowed right now'
+  assert_line 'Scheduling reboot at 04:00'
+  assert_line 'Scheduling shutdown'
+}
+
+@test 'reboot required at 01:00, disallowed hours 01:00-03:59, no reboot time specified -> skips scheduling reboot' {
+  stub tracer ': exit 104'
+  stub date '+%k : echo 1'
+
+  run ./dnf-automatic-restart -n 1-3
+
+  assert_success
+  assert_line 'Rebooting the system is disallowed right now'
+  assert_line 'Skipped scheduling reboot because reboot time was not specified'
+}
+
+@test 'reboot required at 02:00, disallowed hours 01:00-03:59, no reboot time specified -> skips scheduling reboot' {
+  stub tracer ': exit 104'
+  stub date '+%k : echo 2'
+
+  run ./dnf-automatic-restart -n 1-3
+
+  assert_success
+  assert_line 'Rebooting the system is disallowed right now'
+  assert_line 'Skipped scheduling reboot because reboot time was not specified'
+}
+
+@test 'reboot required at 03:00, disallowed hours 01:00-03:59, reboot time 04:00 -> schedules reboot for 04:00' {
+  stub tracer ': exit 104'
+  stub date '+%k : echo 3'
+  stub shutdown "--reboot 04:00 : echo Scheduling shutdown"
+
+  run ./dnf-automatic-restart -n 1-3 -r 4
+
+  assert_success
+  assert_line 'Rebooting the system is disallowed right now'
+  assert_line 'Scheduling reboot at 04:00'
+  assert_line 'Scheduling shutdown'
+}
+
+@test 'reboot required at 04:00, disallowed hours 01:00-03:59, no reboot time specified -> reboots now + 5min' {
+  stub tracer ': exit 104'
+  stub date '+%k : echo 4'
+  stub shutdown "--reboot +5 : echo Scheduling shutdown"
+
+  run ./dnf-automatic-restart -n 1-3
+
+  assert_success
+  assert_line 'Rebooting system'
+  assert_line 'Scheduling shutdown'
+}
+
+@test 'reboot required at 04:00, disallowed hours 01:00-03:59, reboot time 5:00 -> reboots now + 5min' {
+  stub tracer ': exit 104'
+  stub date '+%k : echo 4'
+  stub shutdown "--reboot +5 : echo Scheduling shutdown"
+
+  run ./dnf-automatic-restart -n 1-3 -r 5
+
+  assert_success
+  assert_line 'Rebooting system'
+  assert_line 'Scheduling shutdown'
+}
 
 @test 'no services were updated' {
   tracer_services="ignored line\nignored line"
