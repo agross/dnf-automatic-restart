@@ -54,7 +54,15 @@ trigger_reboot() {
   if [[ -n "$no_reboot_from" && -n "$no_reboot_to" ]]; then
     hour="$(date +%k)"
 
-    if ((hour >= no_reboot_from && hour <= no_reboot_to)); then
+    local no_reboot_now
+    if ((no_reboot_from > no_reboot_to)); then
+	no_reboot_now=$((hour <= no_reboot_from || hour >= no_reboot_to))
+    else
+	no_reboot_now=$((hour >= no_reboot_from && hour <= no_reboot_to))
+    fi
+    
+    
+    if ((no_reboot_now == 1)); then
       printf 'Rebooting the system is disallowed right now\n'
 
       if [[ -z "$reboot_at" ]]; then
@@ -181,9 +189,6 @@ while getopts ':dhn:r:' opt; do
           error 'No automatic reboot between hours must be numeric.'
         fi
 
-        if ((no_reboot_to < no_reboot_from)); then
-          error 'No automatic reboot between hours must be a valid "from-to" range.'
-        fi
         ;;
       r)
         reboot_at="$(printf %02d "$OPTARG")"
