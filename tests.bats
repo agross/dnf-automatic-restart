@@ -197,6 +197,54 @@ teardown() {
   assert_line 'Scheduling shutdown'
 }
 
+@test 'reboot required at 08:00, disallowed hours 08:00-02:59, no reboot time specified -> skips scheduling reboot' {
+  stub tracer ': exit 104'
+  stub date '+%k : echo 8'
+
+  run ./dnf-automatic-restart -n 8-2
+
+  assert_success
+  assert_line 'Rebooting the system is disallowed right now'
+  assert_line 'Skipped scheduling reboot because reboot time was not specified'
+}
+
+@test 'reboot required at 03:00, disallowed hours 08:00-02:59, no reboot time specified -> reboots now + 5min' {
+  stub tracer ': exit 104'
+  stub date '+%k : echo 3'
+  stub shutdown "--reboot +5 : echo Scheduling shutdown"
+
+  run ./dnf-automatic-restart -n 8-2
+
+  assert_success
+  assert_line 'Rebooting system'
+  assert_line 'Scheduling shutdown'
+}
+
+@test 'reboot required at 03:00, disallowed hours 08:00-02:59, reboot time 5:00 -> reboots now + 5min' {
+  stub tracer ': exit 104'
+  stub date '+%k : echo 3'
+  stub shutdown "--reboot +5 : echo Scheduling shutdown"
+
+  run ./dnf-automatic-restart -n 8-2 -r 5
+
+  assert_success
+  assert_line 'Rebooting system'
+  assert_line 'Scheduling shutdown'
+}
+
+@test 'reboot required at 08:00, disallowed hours 08:00-02:59, reboot time 05:00 -> schedules reboot for 05:00' {
+  stub tracer ': exit 104'
+  stub date '+%k : echo 8'
+  stub shutdown "--reboot 05:00 : echo Scheduling shutdown"
+
+  run ./dnf-automatic-restart -n 8-2 -r 5
+
+  assert_success
+  assert_line 'Rebooting the system is disallowed right now'
+  assert_line 'Scheduling reboot at 05:00'
+  assert_line 'Scheduling shutdown'
+}
+
 @test 'no services were updated' {
   tracer_services="ignored line\nignored line"
 

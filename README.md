@@ -109,6 +109,13 @@ ExecStartPost=/usr/local/sbin/dnf-automatic-restart -n 8-22 -r 0
 
 ```ini
 [Service]
+# No reboots between 08:00 and 02:59, schedule them for 05:00.
+# If dnf-automatic runs in the early morning (03:00-07:59), reboot immediately.
+ExecStartPost=/usr/local/sbin/dnf-automatic-restart -n 8-2 -r 5
+```
+
+```ini
+[Service]
 # No automatic reboots, only services are restarted.
 ExecStartPost=/usr/local/sbin/dnf-automatic-restart -d
 ```
