@@ -39,13 +39,13 @@ Automatic reboots may be prevented or scheduled by specifying
    which also installs [tracer](http://tracer-package.com/).
 
    ```sh
-   dnf install --yes dnf-plugins-extras-tracer
+   dnf install -y dnf-plugins-extras-tracer
    ```
 
 1. Install `dnf-automatic` and enable it.
 
    ```sh
-   dnf install --yes dnf-automatic
+   dnf install -y dnf-automatic
    # Edit /etc/dnf/automatic.conf.
    systemctl enable dnf-automatic-install.timer
    ```
