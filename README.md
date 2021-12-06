@@ -61,17 +61,13 @@ Automatic reboots may be prevented or scheduled by specifying
    `dnf-automatic-restart` after the update process has finished.
 
    ```sh
-   systemctl edit dnf-automatic-install.service
-   ```
-
-   Enter the following contents and save the file (systemd will put it in the
-   correct place).
-
-   ```ini
-   [Service]
+   SYSTEMD_EDITOR=tee systemctl edit dnf-automatic-install.service <<EOF
+[Service]
    # Path to the cloned script (see step 1 above).
    ExecStartPost=/usr/local/sbin/dnf-automatic-restart
+EOF
    ```
+
 
 ## Options
 
