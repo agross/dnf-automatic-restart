@@ -42,7 +42,7 @@ Automatic reboots may be prevented or scheduled by specifying
    dnf install -y dnf-plugins-extras-tracer
    ```
    
-   On CentOS8 / Rocky8 /AlmaLinux the package is named `python3-tracer`
+   On CentOS8 / Rocky8 / AlmaLinux the package is named `python3-tracer`
    
    ```sh
    dnf install -y python3-tracer
